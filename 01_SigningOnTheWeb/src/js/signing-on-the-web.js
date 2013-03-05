@@ -88,6 +88,9 @@ gfx.Filter = {
 // 
 gfx.Draw = {
     canvas: null,
+    context: null,
+    backbuffer: null,
+    backContext: null,
     
     points: null,
     curves: [],
@@ -130,6 +133,8 @@ gfx.Draw = {
     initialize: function(canvas) {
         this.canvas = $(canvas);
         this.context = this.canvas.get(0).getContext('2d');
+		this.backbuffer = $('<canvas width="'+this.canvas.width()+'" height="'+this.canvas.height()+'" />');
+		this.backContext = this.backbuffer.get(0).getContext('2d');
 
         //Set up all the event handlers
         this.canvas.bind('mousedown', $.proxy(this.eventStart, this));
@@ -165,39 +170,47 @@ gfx.Draw = {
 
     eventStop: function(event) {
         this.isDrawing = false;
-		
-        // Quadratic Smoothing only happens when no longer drawing
-        if (this.isAwesome) {
-            this.drawSmoothPath();
-        }
+		this.updateBackbuffer();
     },
 	
 	drawPoint: function(x, y){
         
         var distance = this.distance(this.lastX, this.lastY, x, y) / this.canvas.width();
 
-
 		var thick = this.strokeThickness;
         if (this.isAwesome){
-        	thick = this.calcStrokeWidth(distance);
+        	thick = this.calcStrokeWidth(distance);		
+		}else{
+			
+			this.context.beginPath();
+			this.context.moveTo(this.lastX, this.lastY);
+			this.context.lineTo(x, y);
+			this.context.lineWidth = thick;
+			this.context.stroke();
 		}
-		
-        this.context.beginPath();
-        this.context.moveTo(this.lastX, this.lastY);
-        this.context.lineTo(x, y);
-		this.context.lineWidth = thick;
-        this.context.stroke();
 		
         this.lastX = x;
         this.lastY = y;
         this.points.push({x:this.lastX, y:this.lastY, k:thick});
+		
+        if (this.isAwesome){
+			this.drawSmoothPath();
+		}
     },
 
     drawSmoothPath: function() {
+		if (!this.curves.length){
+			return;
+		}
+		
 		this.context.clearRect(0, 0, this.canvas.width(), this.canvas.height());
+		this.context.drawImage(this.backbuffer.get(0), 0, 0);
 		
 		var j = 0;
-		for (j = 0; j < this.curves.length; j++){
+		
+		// could draw all curves here (j = 0), but using the backbuffer
+		// we only need to draw the current (last) curve
+		for (j = this.curves.length - 1; j < this.curves.length; j++){
 			points = this.curves[j];
 			
 			if (points.length > 2){
@@ -215,6 +228,7 @@ gfx.Draw = {
 					this.drawDividedSmoothPath(sp, points[i], ep);
 				}
 				
+				this.context.lineWidth = sp.k/2;
 				this.context.quadraticCurveTo(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
 				this.context.stroke();
 			}
@@ -240,7 +254,10 @@ gfx.Draw = {
 		for (i = 1; i <= divs; i++){
 			
 			t2 = i/divs;
+			
+			// copy original point locations back in bezier object
 			b[0] = p1.x; b[1] = p1.y; b[2] = cp.x; b[3] = cp.y; b[4] = p2.x; b[5] = p2.y;
+			// slice bezier between the divisions in the loop
 			this.curveSlice(b, t1, t2);
 			
 			// presumes path has already been started
@@ -262,6 +279,9 @@ gfx.Draw = {
 		p1.k = cp.k;
     },
 	
+	// bezier is an array of 6 numbers starting with 
+	// x,y of start point, then x,y of control followed
+	// by x,y of end point
 	curveSlice: function(bezier, t1, t2) {
 		if (t1 == 0){
 			this.curveSliceUpTo(bezier, t2);
@@ -294,6 +314,11 @@ gfx.Draw = {
 			bezier[1] = my + (bezier[3]-my)*t;
 		}
 	},
+	
+	updateBackbuffer: function(){
+		this.backContext.clearRect(0, 0, this.canvas.width(), this.canvas.height());
+		this.backContext.drawImage(this.canvas.get(0), 0, 0);
+	},
     
     clear: function() {
         if (this.canvas && this.context) {
@@ -305,6 +330,8 @@ gfx.Draw = {
             this.context.strokeStyle = this.strokeColor;
             this.context.lineCap = "round";
             this.context.lineWidth = this.strokeThickness;
+			
+			this.backContext.clearRect(0,0, this.canvas.width(), this.canvas.height());
         }
         this.imageData = null;
     },
