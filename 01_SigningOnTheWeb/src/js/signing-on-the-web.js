@@ -96,9 +96,8 @@ gfx.Draw = {
     strokeColor: '#0d3d78',
     strokeThickness: 10,
     strokeThicknessMultiplier : 1.35,
-    allowVariableThickness: false,
-    allowSmoothing: false,
     isAwesome: false,
+	lastMoveTime: 0,
 
     strokes : new Array(
         {tol:0.350, width:0.81},
@@ -144,6 +143,7 @@ gfx.Draw = {
 
     eventStart: function(event) {
         this.isDrawing = true;
+		this.lastMoveTime = new Date().getTime();
 		
 		this.points = [];
 		this.curves.push(this.points);
@@ -152,6 +152,8 @@ gfx.Draw = {
         this.lastY = Math.floor(event.pageY - this.canvas.offset().top);
         
         this.points.push({x:this.lastX, y:this.lastY});
+		
+		requestAnimationFrame($.proxy(this.eventRender, this));
     },
 
     eventMove: function(event) {
@@ -159,38 +161,64 @@ gfx.Draw = {
             return;
         }
         
+		
         var x = Math.floor(event.pageX - this.canvas.offset().left);
         var y = Math.floor(event.pageY - this.canvas.offset().top);
 		
 		this.drawPoint(x, y);
+		
+		this.lastMoveTime = new Date().getTime();
 	},
 	
-	drawPoint: function(x, y){
-        
-        var distance = this.distance(this.lastX, this.lastY, x, y) / this.canvas.width();
-
-        this.context.lineWidth = this.allowVariableThickness ? this.calcStrokeWidth(distance) : this.strokeThickness;
-        
-        this.context.beginPath();
-        this.context.moveTo(this.lastX, this.lastY);
-
-        this.context.lineTo(x, y);
-        this.context.stroke();
-        this.lastX = x;
-        this.lastY = y;
-        this.points.push({x:this.lastX, y:this.lastY});
-        
-        
-    },
+	eventRender: function(){
+		var nowTime = new Date().getTime();
+		var diffTime = nowTime - this.lastMoveTime;
+		
+		if (this.isAwesome){
+			if (diffTime > 100){
+				this.puddle(diffTime);
+			}
+		}
+		
+		if (this.isDrawing){
+			requestAnimationFrame($.proxy(this.eventRender, this));
+		}	
+	},
 
     eventStop: function(event) {
         this.isDrawing = false;
 		
         // Quadratic Smoothing only happens when no longer drawing
-        if (this.allowSmoothing) {
+        if (this.isAwesome) {
             this.drawSmoothPath();
         }
     },
+	
+	drawPoint: function(x, y){
+        
+        var distance = this.distance(this.lastX, this.lastY, x, y) / this.canvas.width();
+
+
+		var thick = this.strokeThickness;
+        if (this.isAwesome){
+        	thick = this.calcStrokeWidth(distance);
+		}
+		
+        this.context.beginPath();
+        this.context.moveTo(this.lastX, this.lastY);
+        this.context.lineTo(x, y);
+		this.context.lineWidth = thick;
+        this.context.stroke();
+		
+        this.lastX = x;
+        this.lastY = y;
+        this.points.push({x:this.lastX, y:this.lastY, k:thick});
+    },
+	
+	
+	puddle: function(amount){
+		console.log("puddle");
+	},
 
     drawSmoothPath: function() {
 		this.context.clearRect(0, 0, this.canvas.width(), this.canvas.height());
@@ -209,9 +237,15 @@ gfx.Draw = {
 				for (i = 1; i < points.length - 2; i++) {
 					var xc = (points[i].x + points[i + 1].x) / 2;
 					var yc = (points[i].y + points[i + 1].y) / 2;
+					
+					this.context.lineWidth = points[i + 1].k;
 					this.context.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+					this.context.stroke();
+					this.context.beginPath();
+					this.context.moveTo(xc, yc);
 				}
 				
+				this.context.lineWidth = points[i + 1].k;
 				this.context.quadraticCurveTo(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
 				this.context.stroke();
 			}
@@ -233,9 +267,6 @@ gfx.Draw = {
     },
 
     calcStrokeWidth: function(distance) {
-        if (this.allowSmoothing) {
-            return 3;
-        }
         var strokeWidth = 3;
         for (var i = 0; i < this.strokes.length; i++) {
             if (distance <= this.strokes[i].tol) {
@@ -251,14 +282,6 @@ gfx.Draw = {
 
     toImage: function() {
         return $('<img src="' + this.canvas.get(0).toDataURL() + '"/>');
-    },
-
-    toggleSmooth: function() {
-        this.allowSmoothing = !this.allowSmoothing;
-    },
-    
-    toggleVariableThickness: function() {
-        this.allowVariableThickness = !this.allowVariableThickness;
     },
     
     toggleAwesomePen: function() {
