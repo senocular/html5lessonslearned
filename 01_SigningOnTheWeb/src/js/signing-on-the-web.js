@@ -89,7 +89,8 @@ gfx.Filter = {
 gfx.Draw = {
     canvas: null,
     
-    points: [],
+    points: null,
+    curves: [],
     isDrawing: false,
 
     strokeColor: '#0d3d78',
@@ -143,6 +144,9 @@ gfx.Draw = {
 
     eventStart: function(event) {
         this.isDrawing = true;
+		
+		this.points = [];
+		this.curves.push(this.points);
 
         this.lastX = Math.floor(event.pageX - this.canvas.offset().left);
         this.lastY = Math.floor(event.pageY - this.canvas.offset().top);
@@ -184,25 +188,35 @@ gfx.Draw = {
     },
 
     drawSmoothPath: function() {
-        this.context.clearRect(0, 0, this.canvas.width(), this.canvas.height());
-        this.context.moveTo(this.points[0].x, this.points[0].y); 
-
-        var i = 0;
-        for (i = 1; i < this.points.length - 2; i++) {
-            var xc = (this.points[i].x + this.points[i + 1].x) / 2;
-            var yc = (this.points[i].y + this.points[i + 1].y) / 2;
-
-            this.context.lineWidth = this.strokeThickness;
-            this.context.quadraticCurveTo(this.points[i].x, this.points[i].y, xc, yc);
-        }
-        this.context.quadraticCurveTo(this.points[i].x, this.points[i].y, this.points[i + 1].x, this.points[i + 1].y);
-
-        this.context.stroke();
+		this.context.clearRect(0, 0, this.canvas.width(), this.canvas.height());
+		
+		var points;
+		
+		var j = 0;
+		for (j = 0; j < this.curves.length; j++){
+			points = this.curves[j];
+			
+			this.context.beginPath();
+			this.context.moveTo(points[0].x, points[0].y); 
+	
+			var i = 0;
+			for (i = 1; i < points.length - 2; i++) {
+				var xc = (points[i].x + points[i + 1].x) / 2;
+				var yc = (points[i].y + points[i + 1].y) / 2;
+	
+				this.context.lineWidth = this.strokeThickness;
+				this.context.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
+			}
+			this.context.quadraticCurveTo(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
+	
+			this.context.stroke();
+		}
     },
     
     clear: function() {
         if (this.canvas && this.context) {
-            this.points = new Array();
+			this.curves.length = 0;
+            this.points = null;
 
             //Reset context and line styles
             this.context.clearRect(0, 0, this.canvas.width(), this.canvas.height());
