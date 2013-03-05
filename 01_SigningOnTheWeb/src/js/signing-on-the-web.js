@@ -97,6 +97,7 @@ gfx.Draw = {
     strokeThicknessMultiplier : 1.35,
     allowVariableThickness: false,
     allowSmoothing: false,
+    isAwesome: false,
 
     strokes : new Array(
         {tol:0.350, width:0.81},
@@ -239,6 +240,10 @@ gfx.Draw = {
     
     toggleVariableThickness: function() {
         this.allowVariableThickness = !this.allowVariableThickness;
+    },
+    
+    toggleAwesomePen: function() {
+        this.isAwesome = !this.isAwesome;
     }
 };
 
