@@ -98,7 +98,7 @@ gfx.Draw = {
 
     strokeColor: '#0d3d78',
     strokeThickness: 10,
-    strokeThicknessMultiplier : 1.35,
+    strokeThicknessMultiplier : 2.35,
     isAwesome: false,
 
     strokes : new Array(
