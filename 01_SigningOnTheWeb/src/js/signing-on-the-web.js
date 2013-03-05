@@ -97,8 +97,6 @@ gfx.Draw = {
     strokeThickness: 10,
     strokeThicknessMultiplier : 1.35,
     isAwesome: false,
-	lastMoveTime: 0,
-	lastMoveTimeDelta: 0,
 
     strokes : new Array(
         {tol:0.350, width:0.81},
@@ -144,8 +142,6 @@ gfx.Draw = {
 
     eventStart: function(event) {
         this.isDrawing = true;
-		this.lastMoveTime = new Date().getTime();
-		this.lastMoveTimeDelta = 0;
 		
 		this.points = [];
 		this.curves.push(this.points);
@@ -153,9 +149,7 @@ gfx.Draw = {
         this.lastX = Math.floor(event.pageX - this.canvas.offset().left);
         this.lastY = Math.floor(event.pageY - this.canvas.offset().top);
         
-        this.points.push({x:this.lastX, y:this.lastY});
-		
-		requestAnimationFrame($.proxy(this.eventRender, this));
+        this.points.push({x:this.lastX, y:this.lastY, k:1});
     },
 
     eventMove: function(event) {
@@ -163,26 +157,10 @@ gfx.Draw = {
             return;
         }
 		
-		
-        var nowTime = new Date().getTime();
-		this.lastMoveTimeDelta = nowTime - this.lastMoveTime;
-		
         var x = Math.floor(event.pageX - this.canvas.offset().left);
         var y = Math.floor(event.pageY - this.canvas.offset().top);
 		
 		this.drawPoint(x, y);
-		
-		this.lastMoveTime = nowTime;
-	},
-	
-	eventRender: function(){
-		if (this.isAwesome && this.lastMoveTimeDelta > 100){
-			this.puddle();
-		}
-		
-		if (this.isDrawing){
-			requestAnimationFrame($.proxy(this.eventRender, this));
-		}	
 	},
 
     eventStop: function(event) {
@@ -214,11 +192,6 @@ gfx.Draw = {
         this.lastY = y;
         this.points.push({x:this.lastX, y:this.lastY, k:thick});
     },
-	
-	
-	puddle: function(){
-		console.log("puddle");
-	},
 
     drawSmoothPath: function() {
 		this.context.clearRect(0, 0, this.canvas.width(), this.canvas.height());
@@ -267,13 +240,15 @@ gfx.Draw = {
 		for (i = 1; i <= divs; i++){
 			
 			t2 = i/divs;
-			b = [p1.x, p1.y, cp.x, cp.y, p2.x, p2.y];
-			curveSlice(b, t1, t2);
+			b[0] = p1.x; b[1] = p1.y; b[2] = cp.x; b[3] = cp.y; b[4] = p2.x; b[5] = p2.y;
+			this.curveSlice(b, t1, t2);
 			
+			// presumes path has already been started
 			this.context.lineWidth = p1.k + dk * i;
 			this.context.quadraticCurveTo(b[2], b[3], b[4], b[5]);
 			this.context.stroke();
 			
+			// prepare next path in loop
 			this.context.beginPath();
 			this.context.moveTo(b[4], b[5]);
 			
@@ -286,6 +261,39 @@ gfx.Draw = {
 		p1.y = b[5];
 		p1.k = cp.k;
     },
+	
+	curveSlice: function(bezier, t1, t2) {
+		if (t1 == 0){
+			this.curveSliceUpTo(bezier, t2);
+		}else if (t2 == 1){
+			this.curveSliceFrom(bezier, t1);
+		}else{
+			this.curveSliceUpTo(bezier, t2);
+			this.curveSliceFrom(bezier, t1/t2);
+		}
+	},
+	
+	curveSliceUpTo: function(bezier, t) {
+		if (t != 1) {
+			var mx = bezier[2] + (bezier[4]-bezier[2])*t;
+			var my = bezier[3] + (bezier[5]-bezier[3])*t;
+			bezier[2] = bezier[0] + (bezier[2]-bezier[0])*t;
+			bezier[3] = bezier[1] + (bezier[3]-bezier[1])*t;
+			bezier[4] = bezier[2] + (mx-bezier[2])*t;
+			bezier[5] = bezier[3] + (my-bezier[3])*t;
+		}
+	},
+	
+	curveSliceFrom: function(bezier, t) {
+		if (t != 1) {
+			var mx = bezier[0] + (bezier[2]-bezier[0])*t;
+			var my = bezier[1] + (bezier[3]-bezier[1])*t;
+			bezier[2] = bezier[2] + (bezier[4]-bezier[2])*t;
+			bezier[3] = bezier[3] + (bezier[5]-bezier[3])*t;
+			bezier[0] = mx + (bezier[2]-mx)*t;
+			bezier[1] = my + (bezier[3]-my)*t;
+		}
+	},
     
     clear: function() {
         if (this.canvas && this.context) {
@@ -323,33 +331,3 @@ gfx.Draw = {
         this.isAwesome = !this.isAwesome;
     }
 };
-function curveSlice(bezier, t1, t2) {
-	if (t1 == 0){
-		curveSliceUpTo(bezier, t2);
-	}else if (t2 == 1){
-		curveSliceFrom(bezier, t1);
-	}else{
-		curveSliceUpTo(bezier, t2);
-		curveSliceFrom(bezier, t1/t2);
-	}
-}
-function curveSliceUpTo(bezier, t) {
-	if (t != 1) {
-		var mx = bezier[2] + (bezier[4]-bezier[2])*t;
-		var my = bezier[3] + (bezier[5]-bezier[3])*t;
-		bezier[2] = bezier[0] + (bezier[2]-bezier[0])*t;
-		bezier[3] = bezier[1] + (bezier[3]-bezier[1])*t;
-		bezier[4] = bezier[2] + (mx-bezier[2])*t;
-		bezier[5] = bezier[3] + (my-bezier[3])*t;
-	}
-}
-function curveSliceFrom(bezier, t) {
-	if (t != 1) {
-		var mx = bezier[0] + (bezier[2]-bezier[0])*t;
-		var my = bezier[1] + (bezier[3]-bezier[1])*t;
-		bezier[2] = bezier[2] + (bezier[4]-bezier[2])*t;
-		bezier[3] = bezier[3] + (bezier[5]-bezier[3])*t;
-		bezier[0] = mx + (bezier[2]-mx)*t;
-		bezier[1] = my + (bezier[3]-my)*t;
-	}
-}
