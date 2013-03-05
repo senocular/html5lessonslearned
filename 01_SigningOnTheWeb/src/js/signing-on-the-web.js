@@ -98,6 +98,7 @@ gfx.Draw = {
     strokeThicknessMultiplier : 1.35,
     isAwesome: false,
 	lastMoveTime: 0,
+	lastMoveTimeDelta: 0,
 
     strokes : new Array(
         {tol:0.350, width:0.81},
@@ -135,7 +136,7 @@ gfx.Draw = {
         //Set up all the event handlers
         this.canvas.bind('mousedown', $.proxy(this.eventStart, this));
         this.canvas.bind('mousemove', $.proxy(this.eventMove, this));
-
+		
         $(document).bind('mouseup', $.proxy(this.eventStop, this)); //bind mouseup on document in case the user releases mouse button away from canvas
 
         this.clear();
@@ -144,6 +145,7 @@ gfx.Draw = {
     eventStart: function(event) {
         this.isDrawing = true;
 		this.lastMoveTime = new Date().getTime();
+		this.lastMoveTimeDelta = 0;
 		
 		this.points = [];
 		this.curves.push(this.points);
@@ -160,24 +162,22 @@ gfx.Draw = {
         if (!this.isDrawing) {
             return;
         }
-        
+		
+		
+        var nowTime = new Date().getTime();
+		this.lastMoveTimeDelta = nowTime - this.lastMoveTime;
 		
         var x = Math.floor(event.pageX - this.canvas.offset().left);
         var y = Math.floor(event.pageY - this.canvas.offset().top);
 		
 		this.drawPoint(x, y);
 		
-		this.lastMoveTime = new Date().getTime();
+		this.lastMoveTime = nowTime;
 	},
 	
 	eventRender: function(){
-		var nowTime = new Date().getTime();
-		var diffTime = nowTime - this.lastMoveTime;
-		
-		if (this.isAwesome){
-			if (diffTime > 100){
-				this.puddle(diffTime);
-			}
+		if (this.isAwesome && this.lastMoveTimeDelta > 100){
+			this.puddle();
 		}
 		
 		if (this.isDrawing){
@@ -216,40 +216,75 @@ gfx.Draw = {
     },
 	
 	
-	puddle: function(amount){
+	puddle: function(){
 		console.log("puddle");
 	},
 
     drawSmoothPath: function() {
 		this.context.clearRect(0, 0, this.canvas.width(), this.canvas.height());
 		
-		var points;
-		
 		var j = 0;
 		for (j = 0; j < this.curves.length; j++){
 			points = this.curves[j];
 			
 			if (points.length > 2){
+				var sp = {x:points[0].x, y:points[0].y, k:points[0].k};
+				var ep = {x:0, y:0, k:0};
+				
 				this.context.beginPath();
-				this.context.moveTo(points[0].x, points[0].y); 
+				this.context.moveTo(sp.x, sp.y); 
 		
 				var i = 0;
 				for (i = 1; i < points.length - 2; i++) {
-					var xc = (points[i].x + points[i + 1].x) / 2;
-					var yc = (points[i].y + points[i + 1].y) / 2;
 					
-					this.context.lineWidth = points[i + 1].k;
-					this.context.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
-					this.context.stroke();
-					this.context.beginPath();
-					this.context.moveTo(xc, yc);
+					ep.x = (points[i].x + points[i + 1].x) / 2;
+					ep.y = (points[i].y + points[i + 1].y) / 2;
+					this.drawDividedSmoothPath(sp, points[i], ep);
 				}
 				
-				this.context.lineWidth = points[i + 1].k;
 				this.context.quadraticCurveTo(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
 				this.context.stroke();
 			}
 		}
+    },
+
+    drawDividedSmoothPath: function(p1, cp, p2) {
+		
+		var dk = cp.k - p1.k; // line weight difference
+		
+		// divisions based on variation in thickness
+		var divs = 1 + Math.floor(Math.abs(dk)*5); // arbitrary multiplier for smoother transitions
+		
+		// deltas for each division
+		dk /= divs;
+		
+		// bezier curve
+		var b = [p1.x, p1.y, cp.x, cp.y, p2.x, p2.y];
+		var t1 = 0; // slice from
+		var t2 = 0; // slice to
+		
+		var i = 0;
+		for (i = 1; i <= divs; i++){
+			
+			t2 = i/divs;
+			b = [p1.x, p1.y, cp.x, cp.y, p2.x, p2.y];
+			curveSlice(b, t1, t2);
+			
+			this.context.lineWidth = p1.k + dk * i;
+			this.context.quadraticCurveTo(b[2], b[3], b[4], b[5]);
+			this.context.stroke();
+			
+			this.context.beginPath();
+			this.context.moveTo(b[4], b[5]);
+			
+			t1 = t2;
+		}
+		
+		// update next start point to
+		// this end point
+		p1.x = b[4];
+		p1.y = b[5];
+		p1.k = cp.k;
     },
     
     clear: function() {
@@ -288,4 +323,33 @@ gfx.Draw = {
         this.isAwesome = !this.isAwesome;
     }
 };
-
+function curveSlice(bezier, t1, t2) {
+	if (t1 == 0){
+		curveSliceUpTo(bezier, t2);
+	}else if (t2 == 1){
+		curveSliceFrom(bezier, t1);
+	}else{
+		curveSliceUpTo(bezier, t2);
+		curveSliceFrom(bezier, t1/t2);
+	}
+}
+function curveSliceUpTo(bezier, t) {
+	if (t != 1) {
+		var mx = bezier[2] + (bezier[4]-bezier[2])*t;
+		var my = bezier[3] + (bezier[5]-bezier[3])*t;
+		bezier[2] = bezier[0] + (bezier[2]-bezier[0])*t;
+		bezier[3] = bezier[1] + (bezier[3]-bezier[1])*t;
+		bezier[4] = bezier[2] + (mx-bezier[2])*t;
+		bezier[5] = bezier[3] + (my-bezier[3])*t;
+	}
+}
+function curveSliceFrom(bezier, t) {
+	if (t != 1) {
+		var mx = bezier[0] + (bezier[2]-bezier[0])*t;
+		var my = bezier[1] + (bezier[3]-bezier[1])*t;
+		bezier[2] = bezier[2] + (bezier[4]-bezier[2])*t;
+		bezier[3] = bezier[3] + (bezier[5]-bezier[3])*t;
+		bezier[0] = mx + (bezier[2]-mx)*t;
+		bezier[1] = my + (bezier[3]-my)*t;
+	}
+}
