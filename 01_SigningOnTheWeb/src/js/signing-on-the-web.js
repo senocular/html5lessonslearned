@@ -221,15 +221,13 @@ gfx.Draw = {
 				this.context.moveTo(sp.x, sp.y); 
 		
 				var i = 0;
-				for (i = 1; i < points.length - 2; i++) {
+				for (i = 1; i < points.length - 1; i++) {
 					
 					ep.x = (points[i].x + points[i + 1].x) / 2;
 					ep.y = (points[i].y + points[i + 1].y) / 2;
 					this.drawDividedSmoothPath(sp, points[i], ep);
 				}
 				
-				this.context.lineWidth = sp.k/2;
-				this.context.quadraticCurveTo(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y);
 				this.context.stroke();
 			}
 		}
