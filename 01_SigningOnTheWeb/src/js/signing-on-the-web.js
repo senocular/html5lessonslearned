@@ -99,7 +99,6 @@ gfx.Draw = {
     allowVariableThickness: false,
     allowSmoothing: false,
     isAwesome: false,
-    awesomeInter: -1,
 
     strokes : new Array(
         {tol:0.350, width:0.81},
@@ -153,9 +152,6 @@ gfx.Draw = {
         this.lastY = Math.floor(event.pageY - this.canvas.offset().top);
         
         this.points.push({x:this.lastX, y:this.lastY});
-		if (this.isAwesome){
-			this.awesomeInter = setTimeout($.proxy(this.addPointTimeout, this), 100);
-		}
     },
 
     eventMove: function(event) {
@@ -167,11 +163,6 @@ gfx.Draw = {
         var y = Math.floor(event.pageY - this.canvas.offset().top);
 		
 		this.drawPoint(x, y);
-		
-		if (this.isAwesome){
-			clearTimeout(this.awesomeInter);
-			this.awesomeInter = setTimeout($.proxy(this.addPointTimeout, this), 100);
-		}
 	},
 	
 	drawPoint: function(x, y){
@@ -195,18 +186,10 @@ gfx.Draw = {
     eventStop: function(event) {
         this.isDrawing = false;
 		
-		if (this.isAwesome){
-			clearTimeout(this.awesomeInter);
-		}
-		
         // Quadratic Smoothing only happens when no longer drawing
         if (this.allowSmoothing) {
             this.drawSmoothPath();
         }
-    },
-
-    addPointTimeout: function() {
-		this.drawPoint(this.lastX, this.lastY);
     },
 
     drawSmoothPath: function() {
@@ -226,8 +209,6 @@ gfx.Draw = {
 				for (i = 1; i < points.length - 2; i++) {
 					var xc = (points[i].x + points[i + 1].x) / 2;
 					var yc = (points[i].y + points[i + 1].y) / 2;
-		
-					this.context.lineWidth = this.strokeThickness;
 					this.context.quadraticCurveTo(points[i].x, points[i].y, xc, yc);
 				}
 				
