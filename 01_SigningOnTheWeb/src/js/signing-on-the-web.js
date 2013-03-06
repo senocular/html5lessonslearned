@@ -173,7 +173,13 @@ gfx.Draw = {
 	},
 
     eventStop: function(event) {
-        this.isDrawing = false;
+		// make it so single clicks still draw
+		// gotta dot those i's
+		if (this.points.length == 1){
+			this.drawPoint(this.lastX, this.lastY + 1);
+		}
+		
+		this.isDrawing = false;
 		this.updateBackbuffer();
 		
 		event.preventDefault();
