@@ -100,6 +100,8 @@ gfx.Draw = {
     strokeThickness: 10,
     strokeThicknessMultiplier : 2.35,
     isAwesome: false,
+	
+	lastMoveTime: 0,
 
     strokes : new Array(
         {tol:0.350, width:0.81},
@@ -156,6 +158,11 @@ gfx.Draw = {
         
         this.points.push({x:this.lastX, y:this.lastY, k:1});
 		
+		if (this.isAwesome){
+			this.lastMoveTime = new Date().getTime();
+			requestAnimationFrame($.proxy(this.eventFrame, this));
+		}
+		
 		event.preventDefault();
     },
 
@@ -169,13 +176,25 @@ gfx.Draw = {
 		
 		this.drawPoint(x, y);
 		
+		this.lastMoveTime = new Date().getTime();
 		event.preventDefault();
+	},
+	
+	eventFrame: function(){
+		var idleTime = new Date().getTime() - this.lastMoveTime;
+		if (idleTime > 100){
+			this.poolInk(idleTime);
+		}
+		
+		if (this.isDrawing){
+			requestAnimationFrame($.proxy(this.eventFrame, this));
+		}
 	},
 
     eventStop: function(event) {
 		// make it so single clicks still draw
 		// gotta dot those i's
-		if (this.points.length == 1){
+		if (this.points && this.points.length === 1){
 			this.drawPoint(this.lastX, this.lastY + 1);
 			if (this.isAwesome){
 				// two points are used so a full
@@ -196,7 +215,7 @@ gfx.Draw = {
 
 		var thick = this.strokeThickness;
         if (this.isAwesome){
-        	thick = this.calcStrokeWidth(distance);		
+        	thick = this.calcStrokeWidth(distance);	
 		}else{
 			
 			this.context.beginPath();
@@ -229,8 +248,8 @@ gfx.Draw = {
 		// we only need to draw the current (last) curve
 		for (j = this.curves.length - 1; j < this.curves.length; j++){
 			points = this.curves[j];
-			
 			if (points.length > 2){
+				
 				var sp = {x:points[0].x, y:points[0].y, k:points[0].k};
 				var ep = {x:0, y:0, k:0};
 				
@@ -239,9 +258,9 @@ gfx.Draw = {
 		
 				var i = 0;
 				for (i = 1; i < points.length - 1; i++) {
-					
 					ep.x = (points[i].x + points[i + 1].x) / 2;
 					ep.y = (points[i].y + points[i + 1].y) / 2;
+					ep.k = points[i + 1].k;
 					this.drawDividedSmoothPath(sp, points[i], ep);
 				}
 				
@@ -252,7 +271,7 @@ gfx.Draw = {
 
     drawDividedSmoothPath: function(p1, cp, p2) {
 		
-		var dk = cp.k - p1.k; // line weight difference
+		var dk = p2.k - p1.k; // line weight difference
 		
 		// divisions based on variation in thickness
 		var divs = 1 + Math.floor(Math.abs(dk)*5); // arbitrary multiplier for smoother transitions
@@ -291,16 +310,16 @@ gfx.Draw = {
 		// this end point
 		p1.x = b[4];
 		p1.y = b[5];
-		p1.k = cp.k;
+		p1.k = p2.k;
     },
 	
 	// bezier is an array of 6 numbers starting with 
 	// x,y of start point, then x,y of control followed
 	// by x,y of end point
 	curveSlice: function(bezier, t1, t2) {
-		if (t1 == 0){
+		if (t1 === 0){
 			this.curveSliceUpTo(bezier, t2);
-		}else if (t2 == 1){
+		}else if (t2 === 1){
 			this.curveSliceFrom(bezier, t1);
 		}else{
 			this.curveSliceUpTo(bezier, t2);
@@ -309,7 +328,7 @@ gfx.Draw = {
 	},
 	
 	curveSliceUpTo: function(bezier, t) {
-		if (t != 1) {
+		if (t !== 1) {
 			var mx = bezier[2] + (bezier[4]-bezier[2])*t;
 			var my = bezier[3] + (bezier[5]-bezier[3])*t;
 			bezier[2] = bezier[0] + (bezier[2]-bezier[0])*t;
@@ -320,7 +339,7 @@ gfx.Draw = {
 	},
 	
 	curveSliceFrom: function(bezier, t) {
-		if (t != 1) {
+		if (t !== 1) {
 			var mx = bezier[0] + (bezier[2]-bezier[0])*t;
 			var my = bezier[1] + (bezier[3]-bezier[1])*t;
 			bezier[2] = bezier[2] + (bezier[4]-bezier[2])*t;
@@ -333,6 +352,40 @@ gfx.Draw = {
 	updateBackbuffer: function(){
 		this.backContext.clearRect(0, 0, this.canvas.width(), this.canvas.height());
 		this.backContext.drawImage(this.canvas.get(0), 0, 0);
+	},
+	
+	poolInk: function(idleTime){
+		if (this.points.length){
+			// get the last point to pool ink into
+			var pt = this.points[this.points.length - 1];
+			
+			// if this point doesn't have a base weight
+			// it will be replaced with a new point that
+			// does. This also catches up the line with the
+			// current location of the mouse if not already there
+			if (!pt.baseK){
+				this.drawPoint(this.lastX, this.lastY + 1);
+				
+				// if there's not enough points for a curve
+				// we need yet another point
+				if (this.points.length === 2){
+					this.drawPoint(this.lastX + 1, this.lastY + 1);
+				}
+			}
+			
+			// re-obtain last point for pooling
+			var pt = this.points[this.points.length - 1];
+			// baseK identifies a pooled point and
+			// is used to determine pooling ink
+			pt.baseK = pt.k;
+			
+			// new weight is based on time not
+			// moving the mouse reduced by a factor
+			// including the current size to reduce
+			// scaling at larget sizes
+			pt.k = pt.baseK + idleTime/(pt.k * pt.k * 25);
+			this.drawSmoothPath();
+		}
 	},
     
     clear: function() {
