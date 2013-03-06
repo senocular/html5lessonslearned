@@ -155,6 +155,8 @@ gfx.Draw = {
         this.lastY = Math.floor(event.pageY - this.canvas.offset().top);
         
         this.points.push({x:this.lastX, y:this.lastY, k:1});
+		
+		event.preventDefault();
     },
 
     eventMove: function(event) {
@@ -166,11 +168,15 @@ gfx.Draw = {
         var y = Math.floor(event.pageY - this.canvas.offset().top);
 		
 		this.drawPoint(x, y);
+		
+		event.preventDefault();
 	},
 
     eventStop: function(event) {
         this.isDrawing = false;
 		this.updateBackbuffer();
+		
+		event.preventDefault();
     },
 	
 	drawPoint: function(x, y){
