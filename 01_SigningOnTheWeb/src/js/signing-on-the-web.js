@@ -177,6 +177,11 @@ gfx.Draw = {
 		// gotta dot those i's
 		if (this.points.length == 1){
 			this.drawPoint(this.lastX, this.lastY + 1);
+			if (this.isAwesome){
+				// two points are used so a full
+				// curve can be drawn
+				this.drawPoint(this.lastX + 1, this.lastY);
+			}
 		}
 		
 		this.isDrawing = false;
