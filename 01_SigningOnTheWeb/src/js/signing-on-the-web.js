@@ -229,7 +229,7 @@ gfx.Draw = {
 		}
     },
 
-    drawSmoothPath: function(redraw) {
+    drawSmoothPath: function() {
 		if (!this.points){
 			return;
 		}
