@@ -89,8 +89,6 @@ gfx.Filter = {
 gfx.Draw = {
     canvas: null,
     context: null,
-    backbuffer: null,
-    backContext: null,
     
     points: null,
     curves: [],
@@ -135,8 +133,6 @@ gfx.Draw = {
     initialize: function(canvas) {
         this.canvas = $(canvas);
         this.context = this.canvas.get(0).getContext('2d');
-		this.backbuffer = $('<canvas width="'+this.canvas.width()+'" height="'+this.canvas.height()+'" />');
-		this.backContext = this.backbuffer.get(0).getContext('2d');
 
         //Set up all the event handlers
         this.canvas.bind('mousedown', $.proxy(this.eventStart, this));
@@ -204,7 +200,6 @@ gfx.Draw = {
 		}
 		
 		this.isDrawing = false;
-		this.updateBackbuffer();
 		
 		event.preventDefault();
     },
@@ -242,9 +237,6 @@ gfx.Draw = {
 		// at least 3 points are needed to make a curve
 		if (this.points.length > 2){
 			
-			this.context.clearRect(0, 0, this.canvas.width(), this.canvas.height());
-			this.context.drawImage(this.backbuffer.get(0), 0, 0);
-			
 			var index = this.points.length - 2;
 			var sp = this.getCurveEndPoint(index - 1);
 			var ep = this.getCurveEndPoint(index);
@@ -253,8 +245,6 @@ gfx.Draw = {
 			this.context.moveTo(sp.x, sp.y);
 			this.drawDividedSmoothPath(sp, this.points[index], ep);
 			this.context.stroke();
-			
-			this.updateBackbuffer();
 		}
     },
 
@@ -344,11 +334,6 @@ gfx.Draw = {
 		}
 	},
 	
-	updateBackbuffer: function(){
-		this.backContext.clearRect(0, 0, this.canvas.width(), this.canvas.height());
-		this.backContext.drawImage(this.canvas.get(0), 0, 0);
-	},
-	
 	poolInk: function(idleTime){
 		if (this.points.length){
 			// get the last point to pool ink into
@@ -393,8 +378,6 @@ gfx.Draw = {
             this.context.strokeStyle = this.strokeColor;
             this.context.lineCap = "round";
             this.context.lineWidth = this.strokeThickness;
-			
-			this.backContext.clearRect(0,0, this.canvas.width(), this.canvas.height());
         }
         this.imageData = null;
     },
