@@ -155,10 +155,10 @@ gfx.Draw = {
 
         this.lastX = Math.floor(event.pageX - this.canvas.offset().left);
         this.lastY = Math.floor(event.pageY - this.canvas.offset().top);
-        
+		
         this.points.push({x:this.lastX, y:this.lastY, k:1});
 		
-		if (this.isAwesome){
+		if (this.isAwesome && window.requestAnimationFrame){
 			this.lastMoveTime = new Date().getTime();
 			requestAnimationFrame($.proxy(this.eventFrame, this));
 		}
@@ -234,38 +234,27 @@ gfx.Draw = {
 		}
     },
 
-    drawSmoothPath: function() {
-		if (!this.curves.length){
+    drawSmoothPath: function(redraw) {
+		if (!this.points){
 			return;
 		}
 		
-		this.context.clearRect(0, 0, this.canvas.width(), this.canvas.height());
-		this.context.drawImage(this.backbuffer.get(0), 0, 0);
-		
-		var j = 0;
-		
-		// could draw all curves here (j = 0), but using the backbuffer
-		// we only need to draw the current (last) curve
-		for (j = this.curves.length - 1; j < this.curves.length; j++){
-			points = this.curves[j];
-			if (points.length > 2){
-				
-				var sp = {x:points[0].x, y:points[0].y, k:points[0].k};
-				var ep = {x:0, y:0, k:0};
-				
-				this.context.beginPath();
-				this.context.moveTo(sp.x, sp.y); 
-		
-				var i = 0;
-				for (i = 1; i < points.length - 1; i++) {
-					ep.x = (points[i].x + points[i + 1].x) / 2;
-					ep.y = (points[i].y + points[i + 1].y) / 2;
-					ep.k = points[i + 1].k;
-					this.drawDividedSmoothPath(sp, points[i], ep);
-				}
-				
-				this.context.stroke();
-			}
+		// at least 3 points are needed to make a curve
+		if (this.points.length > 2){
+			
+			this.context.clearRect(0, 0, this.canvas.width(), this.canvas.height());
+			this.context.drawImage(this.backbuffer.get(0), 0, 0);
+			
+			var index = this.points.length - 2;
+			var sp = this.getCurveEndPoint(index - 1);
+			var ep = this.getCurveEndPoint(index);
+			
+			this.context.beginPath();
+			this.context.moveTo(sp.x, sp.y);
+			this.drawDividedSmoothPath(sp, this.points[index], ep);
+			this.context.stroke();
+			
+			this.updateBackbuffer();
 		}
     },
 
@@ -312,6 +301,12 @@ gfx.Draw = {
 		p1.y = b[5];
 		p1.k = p2.k;
     },
+	
+	getCurveEndPoint: function(index){
+		return {	x: (this.points[index].x + this.points[index + 1].x) / 2,
+					y: (this.points[index].y + this.points[index + 1].y) / 2,
+					k: this.points[index + 1].k };
+	},
 	
 	// bezier is an array of 6 numbers starting with 
 	// x,y of start point, then x,y of control followed
@@ -384,7 +379,7 @@ gfx.Draw = {
 			// including the current size to reduce
 			// scaling at larget sizes
 			pt.k = pt.baseK + idleTime/(pt.k * pt.k * 25);
-			this.drawSmoothPath();
+			this.drawSmoothPath(true);
 		}
 	},
     
