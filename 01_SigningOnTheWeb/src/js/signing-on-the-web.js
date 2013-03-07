@@ -100,8 +100,10 @@ gfx.Draw = {
 	
     isAwesome: false,
 	pools: false,
+	splatters: false,
 	
 	lastMoveTime: 0,
+	lastDist: 0,
 
     strokes : new Array(
         {tol:0.350, width:0.81},
@@ -155,6 +157,7 @@ gfx.Draw = {
         this.lastY = Math.floor(event.pageY - this.canvas.offset().top);
 		
         this.points.push({x:this.lastX, y:this.lastY, k:1});
+		this.lastDist = 0;
 		
 		if (window.requestAnimationFrame){
 			this.lastMoveTime = new Date().getTime();
@@ -208,11 +211,11 @@ gfx.Draw = {
 	
 	drawPoint: function(x, y){
         
-        var distance = this.distance(this.lastX, this.lastY, x, y) / this.canvas.width();
+        var distance = this.distance(this.lastX, this.lastY, x, y);
 
 		var thick = this.strokeThickness;
         if (this.isAwesome){
-        	thick = this.calcStrokeWidth(distance);	
+        	thick = this.calcStrokeWidth(distance / this.canvas.width());	
 		}else{
 			
 			this.context.beginPath();
@@ -226,9 +229,15 @@ gfx.Draw = {
         this.lastY = y;
         this.points.push({x:this.lastX, y:this.lastY, k:thick});
 		
+		if (this.splatters){
+			this.calcSplatter();
+		}
+		
         if (this.isAwesome){
 			this.drawSmoothPath();
 		}
+		
+		this.lastDist = distance;
     },
 
     drawSmoothPath: function() {
@@ -243,10 +252,7 @@ gfx.Draw = {
 			var sp = this.getCurveEndPoint(index - 1);
 			var ep = this.getCurveEndPoint(index);
 			
-			this.context.beginPath();
-			this.context.moveTo(sp.x, sp.y);
 			this.drawDividedSmoothPath(sp, this.points[index], ep);
-			this.context.stroke();
 		}
     },
 
@@ -265,6 +271,9 @@ gfx.Draw = {
 		var t1 = 0; // slice from
 		var t2 = 0; // slice to
 		
+		this.context.beginPath();
+		this.context.moveTo(p1.x, p1.y);
+		
 		var i = 0;
 		for (i = 1; i <= divs; i++){
 			
@@ -275,7 +284,6 @@ gfx.Draw = {
 			// slice bezier between the divisions in the loop
 			this.curveSlice(b, t1, t2);
 			
-			// presumes path has already been started
 			this.context.lineWidth = p1.k + dk * i;
 			this.context.quadraticCurveTo(b[2], b[3], b[4], b[5]);
 			this.context.stroke();
@@ -333,6 +341,79 @@ gfx.Draw = {
 			bezier[3] = bezier[3] + (bezier[5]-bezier[3])*t;
 			bezier[0] = mx + (bezier[2]-mx)*t;
 			bezier[1] = my + (bezier[3]-my)*t;
+		}
+	},
+	
+	calcSplatter: function(){
+		// need at least 3 points to compare
+		if (!this.points || this.points.length < 3){
+			return;
+		}
+		
+		// last 3 points
+		var last = this.points.length - 1;
+		var a = this.points[last - 2];
+		var b = this.points[last - 1];
+		var c = this.points[last];
+		
+		var angle = Math.atan2(b.y - a.y, b.x - a.x);
+		var da = Math.abs(angle - Math.atan2(c.y - b.y, c.x - b.x));
+		if (da > Math.PI){
+			da = Math.PI*2 - da;
+		}
+		
+		var angleToler = Math.PI * 0.25; // need hard angle to splat
+		var distToler = 7; // should be moving pen fast to splat
+		
+		// check for angle between points and
+		// distance to see if a splat should occurr
+		if (da > angleToler && this.lastDist > distToler){
+			this.drawSpatter(b, angle, this.lastDist); 
+		}
+		
+	},
+	
+	drawSpatter: function(pt, angle, dist){
+		var numSplat = 1 + Math.floor(Math.random() * 4);
+		var spread = 0.6; // from angle
+		var offMul = 0.5; // offset
+		var weightMul = 0.5; // factor from current ink
+		var minWeight = 3; 
+		var maxStrength = 50;
+		var strengthVar = 0.5;
+		var endWeight = 0.3;
+		var cpMul = 0.1; // control loc (ink distribution)
+		
+		var sp = null; // start point
+		var cp = null; // control point
+		var ep = null; // end point
+		var dir = 0;
+		var strength = 0;
+		var dx = 0;
+		var dy = 0;
+		var offx = 0;
+		var offy = 0;
+		
+		var i = 0;
+		for (i=0; i<numSplat; i++){
+			// direction is based off angle +/- some random spread
+			dir = angle + spread * Math.random() - spread/2;
+			// strength is based off of distance
+			strength = Math.min(maxStrength, dist + dist * Math.random());
+			dx = strength * Math.cos(dir);
+			dy = strength * Math.sin(dir);
+			
+			// offset strength more randomized starting
+			// from the drawn line (and based on splat strength)
+			strength = pt.k + offMul * strength * Math.random();
+			offx = strength * Math.cos(dir);
+			offy = strength * Math.sin(dir);
+			// ink weight is based on the current path
+			// but reduced to not be too noisy
+			sp = { x:pt.x + offx, y:pt.y + offy, k:Math.max(minWeight, pt.k * weightMul) };
+			cp = { x:sp.x + dx * cpMul, y:sp.y + dy * cpMul, k:0 };
+			ep = { x:sp.x + dx, y:sp.y + dy, k:endWeight };
+			this.drawDividedSmoothPath(sp, cp, ep);
 		}
 	},
 	
@@ -408,5 +489,9 @@ gfx.Draw = {
     
     togglePooling: function() {
         this.pools = !this.pools;
+    },
+    
+    toggleSplatter: function() {
+        this.splatters = !this.splatters;
     }
 };
