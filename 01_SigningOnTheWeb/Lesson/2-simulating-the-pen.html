@@ -38,7 +38,8 @@
         <div id="section_process_image_options" class="actions" style="margin-bottom:0;">
             <!-- Select different image processing functions -->
             <button class="action right" onclick="gfx.Draw.clear();">Clear</button>
-            <button class="action" onclick="gfx.Draw.toggleAwesomePen(); $(this).toggleClass('selected');">Smoothing &amp; Variable Thickness</button>
+            <button class="action" onclick="gfx.Draw.toggleAwesomePen(); $(this).toggleClass('selected');" title="Toggle Curve Smoothing" accesskey="o">Toggle Smoothing (o)</button>
+            <button class="action" onclick="gfx.Draw.togglePooling(); $(this).toggleClass('selected');" title="Toggle Ink Pooling" accesskey="p">Toggle Pooling (p)</button>
         </div>
     </section>
 

@@ -97,7 +97,9 @@ gfx.Draw = {
     strokeColor: '#0d3d78',
     strokeThickness: 10,
     strokeThicknessMultiplier : 2.35,
+	
     isAwesome: false,
+	pools: false,
 	
 	lastMoveTime: 0,
 
@@ -154,7 +156,7 @@ gfx.Draw = {
 		
         this.points.push({x:this.lastX, y:this.lastY, k:1});
 		
-		if (this.isAwesome && window.requestAnimationFrame){
+		if (window.requestAnimationFrame){
 			this.lastMoveTime = new Date().getTime();
 			requestAnimationFrame($.proxy(this.eventFrame, this));
 		}
@@ -178,7 +180,7 @@ gfx.Draw = {
 	
 	eventFrame: function(){
 		var idleTime = new Date().getTime() - this.lastMoveTime;
-		if (idleTime > 100){
+		if (this.pools && idleTime > 100){
 			this.poolInk(idleTime);
 		}
 		
@@ -402,5 +404,9 @@ gfx.Draw = {
     
     toggleAwesomePen: function() {
         this.isAwesome = !this.isAwesome;
+    },
+    
+    togglePooling: function() {
+        this.pools = !this.pools;
     }
 };
