@@ -139,10 +139,11 @@ gfx.Draw = {
         this.context = this.canvas.get(0).getContext('2d');
 
         //Set up all the event handlers
-        this.canvas.bind('mousedown', $.proxy(this.eventStart, this));
-        this.canvas.bind('mousemove', $.proxy(this.eventMove, this));
+		var hasTouch = ("ontouchstart" in window);
+        this.canvas.bind(hasTouch ? 'touchstart' : 'mousedown', $.proxy(this.eventStart, this));
+        this.canvas.bind(hasTouch ? 'touchmove' : 'mousemove', $.proxy(this.eventMove, this));
 		
-        $(document).bind('mouseup', $.proxy(this.eventStop, this)); //bind mouseup on document in case the user releases mouse button away from canvas
+        $(document).bind(hasTouch ? 'touchend' : 'mouseup', $.proxy(this.eventStop, this)); //bind mouseup on document in case the user releases mouse button away from canvas
 
         this.clear();
     },
@@ -153,8 +154,9 @@ gfx.Draw = {
 		this.points = [];
 		this.curves.push(this.points);
 
-        this.lastX = Math.floor(event.pageX - this.canvas.offset().left);
-        this.lastY = Math.floor(event.pageY - this.canvas.offset().top);
+		var cursor = ("touches" in event) ? event.touches[0] : event;
+        this.lastX = Math.floor(cursor.pageX - this.canvas.offset().left);
+        this.lastY = Math.floor(cursor.pageY - this.canvas.offset().top);
 		
         this.points.push({x:this.lastX, y:this.lastY, k:1});
 		this.lastDist = 0;
@@ -172,8 +174,9 @@ gfx.Draw = {
             return;
         }
 		
-        var x = Math.floor(event.pageX - this.canvas.offset().left);
-        var y = Math.floor(event.pageY - this.canvas.offset().top);
+		var cursor = ("touches" in event) ? event.touches[0] : event;
+        var x = Math.floor(cursor.pageX - this.canvas.offset().left);
+        var y = Math.floor(cursor.pageY - this.canvas.offset().top);
 		
 		this.drawPoint(x, y);
 		
