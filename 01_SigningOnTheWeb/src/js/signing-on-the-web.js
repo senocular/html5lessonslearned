@@ -378,8 +378,8 @@ gfx.Draw = {
 	
 	drawSpatter: function(pt, angle, dist){
 		var numSplat = 1 + Math.floor(Math.random() * 4);
-		var spread = 0.6; // from angle
-		var offMul = 0.25; // offset
+		var spread = 0.75; // from angle
+		var offMul = 1; // offset
 		var weightMul = 0.5; // factor from current ink
 		var minWeight = 3; 
 		var maxStrength = 50;
@@ -408,7 +408,7 @@ gfx.Draw = {
 			
 			// offset strength more randomized starting
 			// from the drawn line (and based on splat strength)
-			strength = pt.k*0.5 + offMul * strength * Math.random();
+			strength = pt.k*weightMul + offMul * strength * Math.random();
 			offx = strength * Math.cos(dir);
 			offy = strength * Math.sin(dir);
 			// ink weight is based on the current path
