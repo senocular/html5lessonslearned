@@ -88,7 +88,10 @@ gfx.Filter = {
 // 
 gfx.Draw = {
     canvas: null,
-    context: null,
+    displayContext: null,
+	
+	bufferCanvas: null,
+	bufferContext: null,
     
     points: null,
     curves: [],
@@ -100,10 +103,12 @@ gfx.Draw = {
 	
     isAwesome: false,
 	pools: false,
+	poolDrips: false,
 	splatters: false,
 	
 	lastMoveTime: 0,
 	lastDist: 0,
+	drips: [],
 
     strokes : new Array(
         {tol:0.350, width:0.81},
@@ -135,8 +140,11 @@ gfx.Draw = {
     ),
 
     initialize: function(canvas) {
-        this.canvas = $(canvas);
-        this.context = this.canvas.get(0).getContext('2d');
+        this.canvas = canvas;
+        this.displayContext = this.canvas.get(0).getContext('2d');
+		
+		this.bufferCanvas = $('<canvas width="'+this.canvas.width()+'" height="'+this.canvas.height()+'"></canvas>');
+		this.bufferContext = this.bufferCanvas.get(0).getContext('2d');
 
         //Set up all the event handlers
 		var hasTouch = ("ontouchstart" in window);
@@ -178,7 +186,13 @@ gfx.Draw = {
         var x = Math.floor(cursor.pageX - this.canvas.offset().left);
         var y = Math.floor(cursor.pageY - this.canvas.offset().top);
 		
-		this.drawPoint(x, y);
+		if (this.drips.length !== 0){
+			this.drips.length = 0;
+			this.bufferContext.clearRect(0,0,this.canvas.width(), this.canvas.height());
+			this.bufferContext.drawImage(this.canvas.get(0), 0, 0);
+		}
+		
+		this.drawPoint(x, y, this.bufferContext);
 		
 		this.lastMoveTime = new Date().getTime();
 		event.preventDefault();
@@ -186,12 +200,18 @@ gfx.Draw = {
 	
 	eventFrame: function(){
 		var idleTime = new Date().getTime() - this.lastMoveTime;
+		this.displayContext.clearRect(0,0,this.canvas.width(), this.canvas.height());
+		
 		if (this.pools && idleTime > 100){
-			this.poolInk(idleTime);
+			this.poolInk(idleTime, this.bufferContext);
 		}
+		
+		this.displayContext.drawImage(this.bufferCanvas.get(0), 0, 0);
 		
 		if (this.isDrawing){
 			requestAnimationFrame($.proxy(this.eventFrame, this));
+		}else{
+			this.eventsComplete();
 		}
 	},
 
@@ -199,33 +219,46 @@ gfx.Draw = {
 		// make it so single clicks still draw
 		// gotta dot those i's
 		if (this.points && this.points.length === 1){
-			this.drawPoint(this.lastX, this.lastY + 1);
+			this.drawPoint(this.lastX, this.lastY + 1, this.bufferContext);
 			if (this.isAwesome){
 				// two points are used so a full
 				// curve can be drawn
-				this.drawPoint(this.lastX + 1, this.lastY);
+				this.drawPoint(this.lastX + 1, this.lastY, this.bufferContext);
 			}
 		}
 		
-		this.isDrawing = false;
+		// copy buffer into main drawing
+		this.displayContext.clearRect(0,0,this.canvas.width(), this.canvas.height());
+		this.displayContext.drawImage(this.bufferCanvas.get(0), 0, 0);
 		
+		this.isDrawing = false;
 		event.preventDefault();
     },
 	
-	drawPoint: function(x, y){
+	eventsComplete: function(){
+		// clear out any drips
+		this.drips.length = 0;
+		
+		// copy current display into main drawing buffer
+		this.bufferContext.clearRect(0,0,this.canvas.width(), this.canvas.height());
+		this.bufferContext.drawImage(this.canvas.get(0), 0, 0);
+		
+	},
+	
+	drawPoint: function(x, y, context){
         
         var distance = this.distance(this.lastX, this.lastY, x, y);
 
 		var thick = this.strokeThickness;
         if (this.isAwesome){
-        	thick = this.calcStrokeWidth(distance / this.canvas.width());	
+        	thick = this.calcStrokeWidth(distance / this.canvas.width()*2);	
 		}else{
 			
-			this.context.beginPath();
-			this.context.moveTo(this.lastX, this.lastY);
-			this.context.lineTo(x, y);
-			this.context.lineWidth = thick;
-			this.context.stroke();
+			context.beginPath();
+			context.moveTo(this.lastX, this.lastY);
+			context.lineTo(x, y);
+			context.lineWidth = thick;
+			context.stroke();
 		}
 		
         this.lastX = x;
@@ -233,17 +266,17 @@ gfx.Draw = {
         this.points.push({x:this.lastX, y:this.lastY, k:thick});
 		
 		if (this.splatters){
-			this.calcSplatter();
+			this.calcSplatter(context);
 		}
 		
         if (this.isAwesome){
-			this.drawSmoothPath();
+			this.drawSmoothPath(context);
 		}
 		
 		this.lastDist = distance;
     },
 
-    drawSmoothPath: function() {
+    drawSmoothPath: function(context) {
 		if (!this.points){
 			return;
 		}
@@ -255,11 +288,11 @@ gfx.Draw = {
 			var sp = this.getCurveEndPoint(index - 1);
 			var ep = this.getCurveEndPoint(index);
 			
-			this.drawDividedSmoothPath(sp, this.points[index], ep);
+			this.drawDividedSmoothPath(sp, this.points[index], ep, context);
 		}
     },
 
-    drawDividedSmoothPath: function(p1, cp, p2) {
+    drawDividedSmoothPath: function(p1, cp, p2, context) {
 		
 		var dk = p2.k - p1.k; // line weight difference
 		
@@ -274,8 +307,8 @@ gfx.Draw = {
 		var t1 = 0; // slice from
 		var t2 = 0; // slice to
 		
-		this.context.beginPath();
-		this.context.moveTo(p1.x, p1.y);
+		context.beginPath();
+		context.moveTo(p1.x, p1.y);
 		
 		var i = 0;
 		for (i = 1; i <= divs; i++){
@@ -287,13 +320,13 @@ gfx.Draw = {
 			// slice bezier between the divisions in the loop
 			this.curveSlice(b, t1, t2);
 			
-			this.context.lineWidth = p1.k + dk * i;
-			this.context.quadraticCurveTo(b[2], b[3], b[4], b[5]);
-			this.context.stroke();
+			context.lineWidth = p1.k + dk * i;
+			context.quadraticCurveTo(b[2], b[3], b[4], b[5]);
+			context.stroke();
 			
 			// prepare next path in loop
-			this.context.beginPath();
-			this.context.moveTo(b[4], b[5]);
+			context.beginPath();
+			context.moveTo(b[4], b[5]);
 			
 			t1 = t2;
 		}
@@ -347,7 +380,7 @@ gfx.Draw = {
 		}
 	},
 	
-	calcSplatter: function(){
+	calcSplatter: function(context){
 		// need at least 3 points to compare
 		if (!this.points || this.points.length < 3){
 			return;
@@ -366,27 +399,28 @@ gfx.Draw = {
 		}
 		
 		var angleToler = Math.PI * 0.25; // need hard angle to splat
-		var distToler = 7; // should be moving pen fast to splat
+		var distToler = 5; // should be moving pen fast to splat
 		
 		// check for angle between points and
 		// distance to see if a splat should occurr
 		if (da > angleToler && this.lastDist > distToler){
-			this.drawSpatter(b, angle, this.lastDist); 
+			this.drawSpatter(b, angle, this.lastDist, context); 
 		}
 		
 	},
 	
-	drawSpatter: function(pt, angle, dist){
+	drawSpatter: function(pt, angle, dist, context){
 		var numSplat = 1 + Math.floor(Math.random() * 4);
-		var spread = 0.75; // from angle
-		var offMul = 1; // offset
+		var spread = 0.6; // from angle
 		var weightMul = 0.5; // factor from current ink
 		var minWeight = 3; 
+		var offMul = 0.5; // offset
+		var strengthMul = 2; // offset
 		var maxStrength = 50;
 		var strengthVar = 0.5;
 		var endWeight = 0.3;
 		var cpMul = 0.1; // control loc (ink distribution)
-		
+
 		var sp = null; // start point
 		var cp = null; // control point
 		var ep = null; // end point
@@ -402,7 +436,7 @@ gfx.Draw = {
 			// direction is based off angle +/- some random spread
 			dir = angle + spread * Math.random() - spread/2;
 			// strength is based off of distance
-			strength = Math.min(maxStrength, dist + dist * Math.random());
+			strength = Math.min(maxStrength, strengthMul * (dist + dist * Math.random()));
 			dx = strength * Math.cos(dir);
 			dy = strength * Math.sin(dir);
 			
@@ -416,11 +450,11 @@ gfx.Draw = {
 			sp = { x:pt.x + offx, y:pt.y + offy, k:Math.max(minWeight, pt.k * weightMul) };
 			cp = { x:sp.x + dx * cpMul, y:sp.y + dy * cpMul, k:0 };
 			ep = { x:sp.x + dx, y:sp.y + dy, k:endWeight };
-			this.drawDividedSmoothPath(sp, cp, ep);
+			this.drawDividedSmoothPath(sp, cp, ep, context);
 		}
 	},
 	
-	poolInk: function(idleTime){
+	poolInk: function(idleTime, context){
 		if (this.points.length){
 			// get the last point to pool ink into
 			var pt = this.points[this.points.length - 1];
@@ -430,40 +464,83 @@ gfx.Draw = {
 			// does. This also catches up the line with the
 			// current location of the mouse if not already there
 			if (!pt.baseK){
-				this.drawPoint(this.lastX, this.lastY + 1);
+				this.drawPoint(this.lastX, this.lastY + 1, context);
 				
 				// if there's not enough points for a curve
 				// we need yet another point
 				if (this.points.length === 2){
-					this.drawPoint(this.lastX + 1, this.lastY + 1);
+					this.drawPoint(this.lastX + 1, this.lastY + 1, context);
 				}
-			}
 			
-			// re-obtain last point for pooling
-			var pt = this.points[this.points.length - 1];
-			// baseK identifies a pooled point and
-			// is used to determine pooling ink
-			pt.baseK = pt.k;
+				// re-obtain last point for pooling
+				pt = this.points[this.points.length - 1];
+					
+				// baseK identifies a pooled point and
+				// is used to determine pooling ink
+				pt.baseK = pt.k;
+			}
 			
 			// new weight is based on time not
 			// moving the mouse reduced by a factor
 			// including the current size to reduce
 			// scaling at larget sizes
-			pt.k = pt.baseK + idleTime/(pt.k * pt.k * 25);
-			this.drawSmoothPath(true);
+			var poolWeightMult = 5;
+			pt.k = pt.baseK + idleTime/(pt.k * poolWeightMult);
+			this.drawSmoothPath(context);
+			
+			if (this.poolDrips){
+				this.dripInk(pt, idleTime);
+			}
 		}
+	},
+	
+	dripInk: function(pt, idleTime){
+		if (idleTime < 1000){
+			return;
+		}
+		
+		if (this.drips.length === 0){
+			this.addDrips(pt);
+		}
+		
+		var i = 0;
+		var n = this.drips.length;
+		for (i=0; i<n; i++){
+			this.drips[i].d += this.drips[i].s * ((300-this.drips[i].d)/300);
+			this.drawDrip(this.drips[i], this.displayContext);
+		}
+	},
+	
+	addDrips: function(pt){
+		var count = 1+Math.floor(Math.random()*4);
+		while(count--){
+			this.drips.push({
+				x:pt.x + 0.5*pt.k - Math.random()*pt.k, 
+				y:pt.y, 
+				d:0, 
+				s:0.1+Math.random(), 
+				k:2+Math.random()*4 });
+		}
+	},
+	
+	drawDrip: function(drip, context){
+		var sp = {x:drip.x, y:drip.y, k:0.1};
+		var ep = {x:drip.x, y:drip.y + drip.d, k:drip.k};
+		var cp = {x:drip.x, y:ep.y};
+		this.drawDividedSmoothPath(sp, cp, ep, context);
 	},
     
     clear: function() {
-        if (this.canvas && this.context) {
+        if (this.canvas && this.displayContext) {
 			this.curves.length = 0;
             this.points = null;
 
             //Reset context and line styles
-            this.context.clearRect(0, 0, this.canvas.width(), this.canvas.height());
-            this.context.strokeStyle = this.strokeColor;
-            this.context.lineCap = "round";
-            this.context.lineWidth = this.strokeThickness;
+            this.bufferContext.clearRect(0, 0, this.canvas.width(), this.canvas.height());
+            this.displayContext.clearRect(0, 0, this.canvas.width(), this.canvas.height());
+            this.displayContext.strokeStyle = this.bufferContext.strokeStyle = this.strokeColor;
+            this.displayContext.lineCap = this.bufferContext.lineCap = "round";
+            this.displayContext.lineWidth = this.bufferContext.lineWidth = this.strokeThickness;
         }
         this.imageData = null;
     },
@@ -492,6 +569,10 @@ gfx.Draw = {
     
     togglePooling: function() {
         this.pools = !this.pools;
+    },
+    
+    togglePoolingDrips: function() {
+        this.poolDrips = !this.poolDrips;
     },
     
     toggleSplatter: function() {

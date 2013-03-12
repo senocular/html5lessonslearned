@@ -34,12 +34,12 @@
         <!-- Drawing goes here -->
         <canvas id="drawing_pad"></canvas>
         
-
         <div id="section_process_image_options" class="actions" style="margin-bottom:0;">
             <!-- Select different image processing functions -->
             <button class="action right" onclick="gfx.Draw.clear();">Clear</button>
             <button class="action" onclick="gfx.Draw.toggleAwesomePen(); $(this).toggleClass('selected');" title="Toggle Curve Smoothing" accesskey="o">Toggle Smoothing (o)</button>
             <button class="action" onclick="gfx.Draw.togglePooling(); $(this).toggleClass('selected');" title="Toggle Ink Pooling" accesskey="p">Toggle Pooling (p)</button>
+            <button class="action" onclick="gfx.Draw.togglePoolingDrips(); $(this).toggleClass('selected');" title="Toggle Dripping from Pools" accesskey="r">Toggle Dripping (r)</button>
             <button class="action" onclick="gfx.Draw.toggleSplatter(); $(this).toggleClass('selected');" title="Toggle Ink Splattering" accesskey="s">Toggle Splattering (s)</button>
         </div>
     </section>
