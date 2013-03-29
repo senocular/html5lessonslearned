@@ -1,3 +1,6 @@
+Lesson 1
+========
+
 Modification of "Simulating the Pen" demo. Changes include:
 - Combined smoothing and variable thickness
 - Smoothing is done while you draw, not after
@@ -7,4 +10,12 @@ Modification of "Simulating the Pen" demo. Changes include:
 - Pooled ink may drip (which is assuming you're writing on a wall or something)
 - Ink splattering can occur for quick, hard turns
 
-Demo page: http://senocular.github.com/html5lessonslearned/01_SigningOnTheWeb/Lesson/2-simulating-the-pen.html
+**View:** http://senocular.github.com/html5lessonslearned/01_SigningOnTheWeb/Lesson/2-simulating-the-pen.html
+
+Lesson 2
+========
+
+Additional animations within css3basics:
+- Mega Man-style teleport
+
+**View:** http://senocular.github.com/html5lessonslearned/02_CSS3Animation/index.html#all-together
