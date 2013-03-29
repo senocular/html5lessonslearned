@@ -27,3 +27,14 @@ function animate() {
         '-webkit-animation' : 'FLYING-MILO 3s 0s infinite'
     });
 }
+
+function applyAnim(button) {
+    var target = $('#'+button.id.substring(6));
+    var animClass = "anim";
+    if (target.hasClass(animClass)){
+        target.removeClass(animClass);
+        setTimeout(function(){ target.addClass(animClass); }, 500);
+    }else{
+        $(target).addClass(animClass);
+    }
+}

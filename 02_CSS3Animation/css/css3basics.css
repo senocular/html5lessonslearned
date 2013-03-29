@@ -2,6 +2,11 @@
     position:relative;
 }
 
+.animation-container img {
+    position:absolute;
+    box-shadow: none;
+ }
+
 
 
 /*************************
@@ -76,4 +81,69 @@
     }
 }
 
+/**********************
+ * Custom Examples   */
+
+#megaMiloMan.anim {
+    -webkit-animation: MEGA-TELEPORT 1.5s ease-in-out;
+    -webkit-animation-fill-mode: forwards;
+}
+
+@-webkit-keyframes MEGA-TELEPORT {
+    0% {
+        opacity: 1;
+        top:0;
+        left:0;
+        width:105px;
+        height:95px;
+        background-color: none;
+    }
+    5% {
+        left:3px;
+        width:110px;
+        height:85px;
+        background-color: none;
+    }
+    10% {
+        top:0;
+        left:38px;
+        width:20px;
+        height:105px;
+        background-color: #CDF;
+    }
+    40% {
+        opacity: 0;
+        top:-1000px;
+        left:38px;
+        width:20px;
+        height:150px;
+    }
+    60% {
+        opacity: 0;
+        top:-1000px;
+        left:638px;
+        width:20px;
+        height:150px;
+    }
+    90% {
+        top:0;
+        left:638px;
+        width:20px;
+        height:105px;
+        background-color: #CDF;
+    }
+    95% {
+        left:603px;
+        width:110px;
+        height:85px;
+        background-color: none;
+    }
+    100% {
+        opacity: 1;
+        top:0;
+        left:600px;
+        width:105px;
+        height:95px;
+    }
+}
 
